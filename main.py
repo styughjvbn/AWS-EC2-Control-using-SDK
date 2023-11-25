@@ -4,7 +4,7 @@ DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.available_zone]
+        self.menu_list=[self.available_zones,self.available_regions]
         self.ec2 = boto3.client('ec2',region_name='us-east-1')
     
     def print_menu(self):
@@ -18,11 +18,17 @@ class ControlPanel():
         print(" "*(DISPLAY_WIDTH//2),end="")
         print(f"\n{' '*(DISPLAY_WIDTH//2)}{99:>3}. {'quit':<{DISPLAY_WIDTH//2-5}}")
 
-    def available_zone(self):
+    def available_regions(self):
         response = self.ec2.describe_regions()
         print("Available regions....")
         for i in response['Regions']:
             print(f"[region] {i['RegionName']:>20},  [endpoint]  {i['Endpoint']}")
+
+    def available_zones(self):
+        response = self.ec2.describe_availability_zones()
+        print("Available zones....")
+        for i in response['AvailabilityZones']:
+            print(f"[id] {i['ZoneId']:>15},  [region]{i['RegionName']:>20},  [Zone]{i['ZoneName']:>20}")
 
     def run(self):
         while True:
@@ -32,8 +38,6 @@ class ControlPanel():
             if menu==99:
                 break
             self.menu_list[menu]()
-
-        print("hihi223")
 
     def temp4():
         print("hihi5534543")

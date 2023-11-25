@@ -1,11 +1,12 @@
+from pprint import pprint
 import boto3
 
 DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.available_zones,self.available_regions]
-        self.ec2 = boto3.client('ec2',region_name='us-east-1')
+        self.menu_list=[self.list_instance,self.available_zones,self.available_regions]
+        self.ec2 = boto3.client('ec2')
     
     def print_menu(self):
         print("-"*DISPLAY_WIDTH)
@@ -39,8 +40,13 @@ class ControlPanel():
                 break
             self.menu_list[menu]()
 
-    def temp4():
-        print("hihi5534543")
+    def list_instance(self):
+        response = self.ec2.describe_instances()
+        print("Listing instances....")
+        for i in response['Reservations']:
+            # pprint(i["Instances"])
+            instance_info=i["Instances"][0]
+            print(f"[id] {instance_info['InstanceId']},  [type]{instance_info['InstanceType']:>10},  [state]{instance_info['State']['Name']:>10}")
     
 control_panel=ControlPanel()
 control_panel.run()

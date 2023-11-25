@@ -5,7 +5,7 @@ DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.list_instance,self.available_zones,self.available_regions]
+        self.menu_list=[self.list_instance,self.available_zones,self.start_instance,self.available_regions,self.stop_instance,self.reboot_instance]
         self.ec2 = boto3.client('ec2')
     
     def print_menu(self):
@@ -47,6 +47,27 @@ class ControlPanel():
             # pprint(i["Instances"])
             instance_info=i["Instances"][0]
             print(f"[id] {instance_info['InstanceId']},  [type]{instance_info['InstanceType']:>10},  [state]{instance_info['State']['Name']:>10}")
+
+    def start_instance(self):
+        print("Enter instance id: ",end="")
+        instance_id=input()
+        response = self.ec2.start_instances(InstanceIds=[instance_id])
+        print("Starting .... %s"%(instance_id))
+        print("Successfully started instance %s"%(instance_id))
+
+    def stop_instance(self):
+        print("Enter instance id: ",end="")
+        instance_id=input()
+        response = self.ec2.stop_instances(InstanceIds=[instance_id])
+        print("Starting .... %s"%(instance_id))
+        print("Successfully stop instance %s"%(instance_id))
+
+    def reboot_instance(self):
+        print("Enter instance id: ",end="")
+        instance_id=input()
+        response = self.ec2.reboot_instances(InstanceIds=[instance_id])
+        print("Starting .... %s"%(instance_id))
+        print("Successfully rebooted instance %s"%(instance_id))
     
 control_panel=ControlPanel()
 control_panel.run()

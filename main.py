@@ -1,15 +1,11 @@
-# import boto3
+import boto3
 
-# ec2 = boto3.client('ec2',region_name='us-east-1')
-
-# # Retrieves all regions/endpoints that work with EC2
-# response = ec2.describe_regions()
-# print('Regions:', response['Regions'])
 DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.temp]
+        self.menu_list=[self.available_zone]
+        self.ec2 = boto3.client('ec2',region_name='us-east-1')
     
     def print_menu(self):
         print("-"*DISPLAY_WIDTH)
@@ -22,14 +18,25 @@ class ControlPanel():
         print(" "*(DISPLAY_WIDTH//2),end="")
         print(f"\n{' '*(DISPLAY_WIDTH//2)}{99:>3}. {'quit':<{DISPLAY_WIDTH//2-5}}")
 
-    def temp():
-        print("hihi")
+    def available_zone(self):
+        response = self.ec2.describe_regions()
+        print("Available regions....")
+        for i in response['Regions']:
+            print(f"[region] {i['RegionName']:>20},  [endpoint]  {i['Endpoint']}")
 
-    def temp2():
+    def run(self):
+        while True:
+            self.print_menu()
+            print("Enter an integer: ",end="")
+            menu=int(input())
+            if menu==99:
+                break
+            self.menu_list[menu]()
+
         print("hihi223")
 
     def temp4():
         print("hihi5534543")
     
 control_panel=ControlPanel()
-control_panel.print_menu()
+control_panel.run()

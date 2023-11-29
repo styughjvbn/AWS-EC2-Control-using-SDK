@@ -1,11 +1,12 @@
 from pprint import pprint
+import time
 import boto3
 
 DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.list_instance,self.available_zones,self.start_instance,self.available_regions,self.stop_instance,self.reboot_instance]
+        self.menu_list=[self.list_instance,self.available_zones,self.start_instance,self.available_regions,self.stop_instance,self.create_instance,self.reboot_instance,self.list_images,self.condor_status,self.create_image,self.delete_image,self.temp]
         self.ec2 = boto3.client('ec2')
     
     def print_menu(self):
@@ -44,9 +45,8 @@ class ControlPanel():
         response = self.ec2.describe_instances()
         print("Listing instances....")
         for i in response['Reservations']:
-            # pprint(i["Instances"])
             instance_info=i["Instances"][0]
-            print(f"[id] {instance_info['InstanceId']},  [type]{instance_info['InstanceType']:>10},  [state]{instance_info['State']['Name']:>10}")
+            print(f"[id] {instance_info['InstanceId']}, [AMI] {instance_info['ImageId']}, [type]{instance_info['InstanceType']:>10}, [state]{instance_info['State']['Name']:>10}, [monitoring state] {instance_info['Monitoring']['State']}, [security group] {' ,'.join(map(lambda a: a['GroupId'],instance_info['SecurityGroups']))}")
 
     def start_instance(self):
         print("Enter instance id: ",end="")
@@ -59,15 +59,79 @@ class ControlPanel():
         print("Enter instance id: ",end="")
         instance_id=input()
         response = self.ec2.stop_instances(InstanceIds=[instance_id])
-        print("Starting .... %s"%(instance_id))
         print("Successfully stop instance %s"%(instance_id))
 
     def reboot_instance(self):
         print("Enter instance id: ",end="")
         instance_id=input()
         response = self.ec2.reboot_instances(InstanceIds=[instance_id])
-        print("Starting .... %s"%(instance_id))
+        print("Rebooting .... %s"%(instance_id))
         print("Successfully rebooted instance %s"%(instance_id))
+
+    def create_instance(self):
+        print("Enter ami id: ",end="")
+        ami_id=input()
+        response=self.ec2.run_instances(ImageId=ami_id, InstanceType='t2.micro',MaxCount=1,MinCount=1)
+        print("Successfully started EC2 instance %s based on AMI %s"%(response['Instances'][0]['InstanceId'],response['Instances'][0]['ImageId']))
+
+    def delete_image(self):
+        print("Enter ami id: ",end="")
+        ami_id=input()
+        response=self.ec2.deregister_image(ImageId=ami_id)
+
+        print("Successfully deleted image %s"%(ami_id))
+    
+    def create_image(self):
+        print("Enter instance id: ",end="")
+        instance_id=input()
+        print("Enter image name: ",end="")
+        iamge_name=input()
+        print("Enter image description : ",end="")
+        iamge_description=input()
+        response=self.ec2.create_image(InstanceId =instance_id, Description =iamge_description,Name=iamge_name)
+
+        print("Successfully created image %s based on instance %s"%(response['ImageId'],instance_id))
+
+    def list_images(self):
+        response = self.ec2.describe_images(Owners=['self'])
+        print("Listing images....")
+        for i in response['Images']:
+            print(f"[ImageID] {i['ImageId']},  [Name]{i['Name']:>20},  [Hypervisor]{i['Hypervisor']:>10}")
+    
+    def condor_status(self):
+        # AWS 인증 및 서비스 클라이언트 생성
+        ssm_client = boto3.client('ssm')
+        print("Enter instance id: ",end="")
+        instance_id=input()
+
+        # Run Command 실행
+        response = ssm_client.send_command(
+            InstanceIds=[instance_id],
+            DocumentName='AWS-RunShellScript',  # 실행할 문서 (Shell 스크립트 실행을 위해 AWS-RunShellScript 사용)
+            Parameters={'commands': ['condor_status']},
+        )
+        command_id = response['Command']['CommandId']
+        # 명령이 완료될 때까지 대기
+        while True:
+            command_status = ssm_client.get_command_invocation(
+                CommandId=command_id,
+                InstanceId=instance_id,  # 결과를 받을 인스턴스 ID
+            )
+            if command_status['Status'] in ['Success', 'Failed', 'Cancelled']:
+                break
+            time.sleep(5)  # 일정 시간을 대기한 후에 상태를 확인합니다.
+
+        # 실행 결과 확인
+        if command_status['Status'] == 'Success':
+            output = command_status['StandardOutputContent']
+            print(output)  # 명령어 실행 결과 출력
+        else:
+            print("Command execution failed or was cancelled.")
+
+    def temp(self):
+        response=self.ec2.describe_security_groups()
+        pprint(response)
+
     
 control_panel=ControlPanel()
 control_panel.run()

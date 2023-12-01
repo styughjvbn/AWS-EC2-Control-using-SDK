@@ -6,7 +6,7 @@ DISPLAY_WIDTH=80
 
 class ControlPanel():
     def __init__(self) -> None:
-        self.menu_list=[self.list_instance,self.available_zones,self.start_instance,self.available_regions,self.stop_instance,self.create_instance,self.reboot_instance,self.list_images,self.condor_status,self.create_image,self.delete_image,self.temp]
+        self.menu_list=[self.list_instance,self.available_zones,self.start_instance,self.available_regions,self.stop_instance,self.create_instance,self.reboot_instance,self.list_images,self.condor_status,self.create_image,self.delete_image,self.list_security_groups,self.create_security_group,self.add_security_group_inegress,self.change_security_group]
         self.ec2 = boto3.client('ec2')
     
     def print_menu(self):
@@ -128,9 +128,75 @@ class ControlPanel():
         else:
             print("Command execution failed or was cancelled.")
 
-    def temp(self):
+    def list_security_groups(self):
         response=self.ec2.describe_security_groups()
-        pprint(response)
+        for i in response['SecurityGroups']:
+            print(f"[GroupId] {i['GroupId']},  [Name]{i['GroupName']:>20},  [Description]  {i['Description']}")
+            for j in i['IpPermissions']:
+                if j['IpProtocol']=='-1':
+                    print(f"    ingress : [protocol] {'all':>7}, [ipv4Range]{j['IpRanges'][0]['CidrIp'] if len(j['IpRanges']) else 'None':>10},  [UserIdGroupPairs]{j['UserIdGroupPairs'][0]['GroupId'] if len(j['UserIdGroupPairs']) else 'None':>25}")
+                else:
+                    print(f"    ingress : [protocol] {j['IpProtocol']:>7},  [portRange]{str(j['FromPort'])+'-'+str(j['ToPort']):>13},  [ipv4Range]{j['IpRanges'][0]['CidrIp'] if len(j['IpRanges']) else 'None':>10},  [UserIdGroupPairs]{j['UserIdGroupPairs'][0]['GroupId'] if len(j['UserIdGroupPairs']) else 'None':>25}")
+            print()
+    def create_security_group(self):
+        print("Enter security group name: ",end="")
+        name=input()
+        print("Enter security group description : ",end="")
+        description=input()
+        response=self.ec2.create_security_group(Description=description,GroupName=name)
+        print("Successfully created security group %s"%(response['GroupId']))
+
+    def add_security_group_inegress(self):
+        request={}
+        print("Enter security group id: ",end="")
+        request['GroupId']=input()
+        print("choice egress protocol [ 1.TCP  2.UDP  3.ICMP  4.ICMPv6 ] : ",end="")
+        IpPermissions={}
+        protocol=int(input())
+        if protocol == 1:
+            IpPermissions["IpProtocol"]="tcp"
+            print("choice port range ex) 0 - 65535: ",end="")
+            port=input()
+            IpPermissions["FromPort"]=int(port.split("-")[0])
+            IpPermissions["ToPort"]=int(port.split("-")[1])
+        elif protocol == 2:
+            IpPermissions["IpProtocol"]="udp"
+            print("choice port range ex) 0 - 65535: ",end="")
+            port=input()
+            IpPermissions["FromPort"]=int(port.split("-")[0])
+            IpPermissions["ToPort"]=int(port.split("-")[1])
+        elif protocol==3:
+            IpPermissions["IpProtocol"]="icmp"
+            IpPermissions["FromPort"]=-1
+            IpPermissions["ToPort"]=-1
+        elif protocol==4:
+            IpPermissions["IpProtocol"]="icmpv6"
+            IpPermissions["FromPort"]=-1
+            IpPermissions["ToPort"]=-1
+        print("choice ipv4 range or user group pair ex) 0.0.0.0/0 or sg-4b51a32f : ",end="")
+        input_value=input()
+        if 'sg' in input_value:
+            IpPermissions["UserIdGroupPairs"]=[{'GroupId':input_value}]
+        else:
+            IpPermissions["IpRanges"]=[{'CidrIp':input_value}]
+        request['IpPermissions']=[IpPermissions]
+        response=self.ec2.authorize_security_group_ingress(**request)
+        if response['Return']:
+            print("Successfully add security group ingress %s"%(request['GroupId']))
+        else:
+            print("Failed")
+
+    def change_security_group(self):
+        print("Enter instance id: ",end="")
+        instance_id=input()
+        interfaceId=self.ec2.describe_instances(InstanceIds=[instance_id])['Reservations'][0]["Instances"][0]['NetworkInterfaces'][0]['NetworkInterfaceId']
+        print("Enter security group id: ",end="")
+        security_group_id=input()
+        response = self.ec2.modify_network_interface_attribute(
+        Groups=[security_group_id],
+        NetworkInterfaceId=interfaceId,
+        )
+        print("Successfully change security group")
 
     
 control_panel=ControlPanel()
